@@ -17,6 +17,7 @@ from transformers import (  # type: ignore
     PreTrainedTokenizerBase,
     set_seed,
 )
+from peft import PeftModel # type: ignore
 from typing_extensions import override
 
 from inspect_ai._util.constants import DEFAULT_MAX_TOKENS
@@ -71,6 +72,7 @@ class HuggingFaceAPI(ModelAPI):
         device = collect_model_arg("device")
         tokenizer = collect_model_arg("tokenizer")
         model_path = collect_model_arg("model_path")
+        lora_path = collect_model_arg("lora_path")
         tokenizer_path = collect_model_arg("tokenizer_path")
         self.batch_size = collect_model_arg("batch_size")
         self.chat_template = collect_model_arg("chat_template")
@@ -97,6 +99,10 @@ class HuggingFaceAPI(ModelAPI):
             self.model = AutoModelForCausalLM.from_pretrained(
                 model_name, device_map=self.device, token=self.api_key, **model_args
             )
+
+        if lora_path:
+            print(f"Loading LoRA from {lora_path}")
+            self.model = PeftModel.from_pretrained(self.model, model_id=lora_path)
 
         # tokenizer
         if tokenizer:
