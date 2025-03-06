@@ -12,6 +12,7 @@ from typing import Any, cast
 import anyio
 from typing_extensions import override
 from vllm import LLM, CompletionOutput, RequestOutput, SamplingParams  # type: ignore
+from vllm.lora.request import LoRARequest
 
 from inspect_ai._util.constants import DEFAULT_MAX_TOKENS
 from inspect_ai.tool import ToolChoice, ToolInfo
@@ -87,6 +88,7 @@ class VLLMAPI(ModelAPI):
         device = collect_model_arg("device")
         tokenizer = collect_model_arg("tokenizer")
         model_path = collect_model_arg("model_path")
+        lora_path = collect_model_arg("lora_path")
         tokenizer_path = collect_model_arg("tokenizer_path")
         self.batch_size = collect_model_arg("batch_size")
         self.chat_template = collect_model_arg("chat_template")
@@ -130,8 +132,15 @@ class VLLMAPI(ModelAPI):
                     "See https://docs.flashinfer.ai/installation.html"
                 )
 
+        self.use_lora = False
+        self.lora_path = None
+        if lora_path:
+            print(f"Loading LoRA from {lora_path}")
+            self.use_lora = True
+            self.lora_path = lora_path
+
         # load model
-        self.model = LLM(model_name, tokenizer=tokenizer, **model_args)
+        self.model = LLM(model_name, tokenizer=tokenizer, enable_lora=self.use_lora, **model_args)
 
         # we get the tokenizer so we can use it to apply the model's chat template later
         self.tokenizer = self.model.get_tokenizer()
@@ -231,9 +240,17 @@ class VLLMAPI(ModelAPI):
 
         # prepare generator
         sampling_params = self.get_sampling_params(config, chat)
-        generator = functools.partial(
-            self.model.generate, sampling_params=sampling_params, use_tqdm=False
-        )
+        if self.use_lora:
+            generator = functools.partial(
+                self.model.generate, sampling_params=sampling_params, use_tqdm=False
+            )
+        else:
+            generator = functools.partial(
+                self.model.generate,
+                sampling_params=sampling_params,
+                lora_request=LoRARequest("andon_rl_adapter", 1, self.lora_path),
+                use_tqdm=False,
+            )
 
         # generate
         responses = await batched_generate(
