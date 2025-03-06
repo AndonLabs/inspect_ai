@@ -1,4 +1,5 @@
 import {
+  FC,
   Fragment,
   RefObject,
   useCallback,
@@ -6,9 +7,9 @@ import {
   useRef,
   useState,
 } from "react";
+import { VirtuosoHandle } from "react-virtuoso";
 import { SampleSummary } from "../../api/types.ts";
 import { EmptyPanel } from "../../components/EmptyPanel.tsx";
-import { VirtualListRef } from "../../components/VirtualList.tsx";
 import { InlineSampleDisplay } from "../../samples/InlineSampleDisplay";
 import { SampleDialog } from "../../samples/SampleDialog";
 import { SamplesDescriptor } from "../../samples/descriptor/samplesDescriptor.tsx";
@@ -43,7 +44,7 @@ interface SamplesTabProps {
   sampleTabScrollRef: RefObject<HTMLDivElement | null>;
 }
 
-export const SamplesTab: React.FC<SamplesTabProps> = ({
+export const SamplesTab: FC<SamplesTabProps> = ({
   sample,
   samples,
   sampleMode,
@@ -65,7 +66,7 @@ export const SamplesTab: React.FC<SamplesTabProps> = ({
   const [items, setItems] = useState<ListItem[]>([]);
   const [sampleItems, setSampleItems] = useState<ListItem[]>([]);
 
-  const sampleListRef = useRef<VirtualListRef>(null);
+  const sampleListHandle = useRef<VirtuosoHandle | null>(null);
   const sampleDialogRef = useRef<HTMLDivElement>(null);
 
   // Shows the sample dialog
@@ -74,7 +75,7 @@ export const SamplesTab: React.FC<SamplesTabProps> = ({
       setSelectedSampleIndex(index);
       setShowingSampleDialog(true);
     },
-    [sampleDialogRef],
+    [setSelectedSampleIndex, setShowingSampleDialog],
   );
 
   useEffect(() => {
@@ -84,8 +85,8 @@ export const SamplesTab: React.FC<SamplesTabProps> = ({
       }, 0);
     } else {
       setTimeout(() => {
-        if (sampleListRef.current) {
-          sampleListRef.current.focus();
+        if (sampleListHandle.current) {
+          sampleListHandle.current.scrollToIndex(0);
         }
       }, 0);
     }
@@ -128,11 +129,11 @@ export const SamplesTab: React.FC<SamplesTabProps> = ({
     } else {
       return -1;
     }
-  }, [selectedSampleIndex, items]);
+  }, [selectedSampleIndex, sampleItems.length]);
 
   const previousSampleIndex = useCallback(() => {
     return selectedSampleIndex > 0 ? selectedSampleIndex - 1 : -1;
-  }, [selectedSampleIndex, items]);
+  }, [selectedSampleIndex]);
 
   // Manage the next / previous state the selected sample
   const nextSample = useCallback(() => {
@@ -140,14 +141,14 @@ export const SamplesTab: React.FC<SamplesTabProps> = ({
     if (sampleStatus !== "loading" && next > -1) {
       setSelectedSampleIndex(next);
     }
-  }, [selectedSampleIndex, samples, sampleStatus, nextSampleIndex]);
+  }, [nextSampleIndex, sampleStatus, setSelectedSampleIndex]);
 
   const previousSample = useCallback(() => {
     const prev = previousSampleIndex();
     if (sampleStatus !== "loading" && prev > -1) {
       setSelectedSampleIndex(prev);
     }
-  }, [selectedSampleIndex, samples, sampleStatus, previousSampleIndex]);
+  }, [previousSampleIndex, sampleStatus, setSelectedSampleIndex]);
 
   const title =
     selectedSampleIndex > -1 && sampleItems.length > selectedSampleIndex
@@ -173,7 +174,7 @@ export const SamplesTab: React.FC<SamplesTabProps> = ({
         ) : undefined}
         {sampleDescriptor && sampleMode === "many" ? (
           <SampleList
-            listRef={sampleListRef}
+            listHandle={sampleListHandle}
             items={items}
             sampleDescriptor={sampleDescriptor}
             selectedIndex={selectedSampleIndex}

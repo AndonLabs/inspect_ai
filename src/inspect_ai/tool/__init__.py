@@ -2,6 +2,7 @@ from inspect_ai._util.content import (
     Content,
     ContentAudio,
     ContentImage,
+    ContentReasoning,
     ContentText,
     ContentVideo,
 )
@@ -41,6 +42,7 @@ __all__ = [
     "Content",
     "ContentAudio",
     "ContentImage",
+    "ContentReasoning",
     "ContentText",
     "ContentVideo",
     "ToolCall",
@@ -57,8 +59,15 @@ __all__ = [
 ]
 
 _UTIL_MODULE_VERSION = "0.3.19"
+_JSON_MODULE_VERSION = "0.3.73"
 _REMOVED_IN = "0.4"
 
+relocated_module_attribute(
+    "JSONType",
+    "inspect_ai.util.JSONType",
+    _JSON_MODULE_VERSION,
+    _REMOVED_IN,
+)
 
 relocated_module_attribute(
     "ToolEnvironment",

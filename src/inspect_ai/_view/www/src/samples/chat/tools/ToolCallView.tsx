@@ -1,8 +1,10 @@
+import { FC, useMemo } from "react";
 import ExpandablePanel from "../../../components/ExpandablePanel";
 import { ContentTool } from "../../../types";
 import {
   ContentAudio,
   ContentImage,
+  ContentReasoning,
   ContentText,
   ContentVideo,
   ToolCallContent,
@@ -14,7 +16,7 @@ import { ToolTitle } from "./ToolTitle";
 interface ToolCallViewProps {
   functionCall: string;
   input?: string;
-  inputType?: string;
+  highlightLanguage?: string;
   view?: ToolCallContent;
   output:
     | string
@@ -25,12 +27,14 @@ interface ToolCallViewProps {
     | ContentImage
     | ContentVideo
     | ContentTool
+    | ContentReasoning
     | (
         | ContentText
         | ContentAudio
         | ContentImage
         | ContentVideo
         | ContentTool
+        | ContentReasoning
       )[];
   mode?: "compact";
 }
@@ -38,10 +42,10 @@ interface ToolCallViewProps {
 /**
  * Renders the ToolCallView component.
  */
-export const ToolCallView: React.FC<ToolCallViewProps> = ({
+export const ToolCallView: FC<ToolCallViewProps> = ({
   functionCall,
   input,
-  inputType,
+  highlightLanguage,
   view,
   output,
   mode,
@@ -56,7 +60,8 @@ export const ToolCallView: React.FC<ToolCallViewProps> = ({
       | ContentAudio
       | ContentImage
       | ContentVideo
-      | ContentTool,
+      | ContentTool
+      | ContentReasoning,
   ) {
     if (value && typeof value === "object") {
       if (value.type === "image") {
@@ -76,6 +81,9 @@ export const ToolCallView: React.FC<ToolCallViewProps> = ({
   const collapse = Array.isArray(output)
     ? output.every((item) => !isContentImage(item))
     : !isContentImage(output);
+  const normalizedContent = useMemo(() => normalizeContent(output), [output]);
+
+  const contents = mode !== "compact" ? input : input || functionCall;
 
   return (
     <div>
@@ -86,14 +94,14 @@ export const ToolCallView: React.FC<ToolCallViewProps> = ({
       )}
       <div>
         <div>
-          <ToolInput type={inputType} contents={input} view={view} />
-          {output ? (
-            <ExpandablePanel collapse={collapse} border={true} lines={15}>
-              <MessageContent contents={normalizeContent(output)} />
-            </ExpandablePanel>
-          ) : (
-            ""
-          )}
+          <ToolInput
+            highlightLanguage={highlightLanguage}
+            contents={contents}
+            toolCallView={view}
+          />
+          <ExpandablePanel collapse={collapse} border={true} lines={15}>
+            <MessageContent contents={normalizedContent} />
+          </ExpandablePanel>
         </div>
       </div>
     </div>
@@ -113,12 +121,14 @@ const normalizeContent = (
     | ContentAudio
     | ContentVideo
     | ContentTool
+    | ContentReasoning
     | (
         | ContentText
         | ContentImage
         | ContentAudio
         | ContentVideo
         | ContentTool
+        | ContentReasoning
       )[],
 ): (
   | ContentText
@@ -126,6 +136,7 @@ const normalizeContent = (
   | ContentAudio
   | ContentVideo
   | ContentTool
+  | ContentReasoning
 )[] => {
   if (Array.isArray(output)) {
     return output;

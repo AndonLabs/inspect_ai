@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Literal
 
 from openai.types.chat import (
@@ -26,11 +27,18 @@ from openai.types.chat.chat_completion_message_tool_call import Function
 from openai.types.completion_usage import CompletionUsage
 from openai.types.shared_params.function_definition import FunctionDefinition
 
-from inspect_ai._util.content import Content, ContentAudio, ContentImage, ContentText
+from inspect_ai._util.content import (
+    Content,
+    ContentAudio,
+    ContentImage,
+    ContentReasoning,
+    ContentText,
+)
 from inspect_ai._util.images import file_as_data_uri
 from inspect_ai._util.url import is_http_url
 from inspect_ai.model._call_tools import parse_tool_call
 from inspect_ai.model._model_output import ChatCompletionChoice, Logprobs
+from inspect_ai.model._reasoning import parse_content_with_reasoning
 from inspect_ai.tool import ToolCall, ToolChoice, ToolFunction, ToolInfo
 
 from ._chat_message import (
@@ -44,27 +52,11 @@ from ._model_output import ModelUsage, StopReason, as_stop_reason
 
 
 def is_o_series(name: str) -> bool:
-    return is_o1(name) or is_o3(name)
-
-
-def is_o1(name: str) -> bool:
-    return name.startswith("o1")
-
-
-def is_o3(name: str) -> bool:
-    return name.startswith("o3")
-
-
-def is_o1_full(name: str) -> bool:
-    return is_o1(name) and not is_o1_mini(name) and not is_o1_preview(name)
+    return bool(re.match(r"^o\d+", name))
 
 
 def is_o1_mini(name: str) -> bool:
     return name.startswith("o1-mini")
-
-
-def is_o3_mini(name: str) -> bool:
-    return name.startswith("o3-mini")
 
 
 def is_o1_preview(name: str) -> bool:
@@ -132,10 +124,17 @@ async def openai_chat_message(
     message: ChatMessage, model: str
 ) -> ChatCompletionMessageParam:
     if message.role == "system":
-        if is_o1(model):
+        # o1-mini does not support developer or system messages
+        # (see Dec 17, 2024 changelog: https://platform.openai.com/docs/changelog)
+        if is_o1_mini(model):
+            return ChatCompletionUserMessageParam(role="user", content=message.text)
+        # other o-series models use 'developer' rather than 'system' messages
+        # https://platform.openai.com/docs/guides/reasoning#advice-on-prompting
+        elif is_o_series(model):
             return ChatCompletionDeveloperMessageParam(
                 role="developer", content=message.text
             )
+        # gpt models use standard 'system' messages
         else:
             return ChatCompletionSystemMessageParam(
                 role=message.role, content=message.text
@@ -156,14 +155,14 @@ async def openai_chat_message(
         if message.tool_calls:
             return ChatCompletionAssistantMessageParam(
                 role=message.role,
-                content=message.text,
+                content=openai_assistant_content(message),
                 tool_calls=[
                     openai_chat_tool_call_param(call) for call in message.tool_calls
                 ],
             )
         else:
             return ChatCompletionAssistantMessageParam(
-                role=message.role, content=message.text
+                role=message.role, content=openai_assistant_content(message)
             )
     elif message.role == "tool":
         return ChatCompletionToolMessageParam(
@@ -183,16 +182,29 @@ async def openai_chat_messages(
     return [await openai_chat_message(message, model) for message in messages]
 
 
+def openai_assistant_content(message: ChatMessageAssistant) -> str:
+    if isinstance(message.content, str):
+        content = message.content
+    else:
+        content = ""
+        for c in message.content:
+            if c.type == "reasoning":
+                attribs = ""
+                if c.signature is not None:
+                    attribs = f'{attribs} signature="{c.signature}"'
+                if c.redacted:
+                    attribs = f'{attribs} redacted="true"'
+                content = f"{content}\n<think{attribs}>\n{c.reasoning}\n</think>\n"
+            elif c.type == "text":
+                content = f"{content}\n{c.text}"
+    return content
+
+
 def openai_chat_choices(choices: list[ChatCompletionChoice]) -> list[Choice]:
     oai_choices: list[Choice] = []
 
     for index, choice in enumerate(choices):
-        if isinstance(choice.message.content, str):
-            content = choice.message.content
-        else:
-            content = "\n".join(
-                [c.text for c in choice.message.content if c.type == "text"]
-            )
+        content = openai_assistant_content(choice.message)
         if choice.message.tool_calls:
             tool_calls = [openai_chat_tool_call(tc) for tc in choice.message.tool_calls]
         else:
@@ -282,35 +294,47 @@ def chat_messages_from_openai(
     chat_messages: list[ChatMessage] = []
 
     for message in messages:
+        content: str | list[Content] = []
         if message["role"] == "system" or message["role"] == "developer":
             sys_content = message["content"]
             if isinstance(sys_content, str):
                 chat_messages.append(ChatMessageSystem(content=sys_content))
             else:
-                chat_messages.append(
-                    ChatMessageSystem(
-                        content=[content_from_openai(c) for c in sys_content]
-                    )
-                )
+                content = []
+                for sc in sys_content:
+                    content.extend(content_from_openai(sc))
+                chat_messages.append(ChatMessageSystem(content=content))
         elif message["role"] == "user":
             user_content = message["content"]
             if isinstance(user_content, str):
                 chat_messages.append(ChatMessageUser(content=user_content))
             else:
-                chat_messages.append(
-                    ChatMessageUser(
-                        content=[content_from_openai(c) for c in user_content]
-                    )
-                )
+                content = []
+                for uc in user_content:
+                    content.extend(content_from_openai(uc))
+                chat_messages.append(ChatMessageUser(content=content))
         elif message["role"] == "assistant":
             # resolve content
-            asst_content = message["content"]
+            asst_content = message.get("content", None)
             if isinstance(asst_content, str):
-                content: str | list[Content] = asst_content
+                result = parse_content_with_reasoning(asst_content)
+                if result is not None:
+                    content = [
+                        ContentReasoning(
+                            reasoning=result.reasoning,
+                            signature=result.signature,
+                            redacted=result.redacted,
+                        ),
+                        ContentText(text=result.content),
+                    ]
+                else:
+                    content = asst_content
             elif asst_content is None:
                 content = message.get("refusal", None) or ""
             else:
-                content = [content_from_openai(c) for c in asst_content]
+                content = []
+                for ac in asst_content:
+                    content.extend(content_from_openai(ac, parse_reasoning=True))
 
             # resolve reasoning (OpenAI doesn't suport this however OpenAI-compatible
             # interfaces e.g. DeepSeek do include this field so we pluck it out)
@@ -318,22 +342,25 @@ def chat_messages_from_openai(
                 "reasoning", None
             )
             if reasoning is not None:
-                reasoning = str(reasoning)
+                if isinstance(content, str):
+                    content = [ContentText(text=content)]
+                else:
+                    content.insert(0, ContentReasoning(reasoning=str(reasoning)))
 
             # return message
             if "tool_calls" in message:
                 tool_calls: list[ToolCall] = []
-                for tc in message["tool_calls"]:
-                    tool_calls.append(tool_call_from_openai(tc))
-                    tool_names[tc["id"]] = tc["function"]["name"]
+                for call in message["tool_calls"]:
+                    tool_calls.append(tool_call_from_openai(call))
+                    tool_names[call["id"]] = call["function"]["name"]
 
             else:
                 tool_calls = []
+
             chat_messages.append(
                 ChatMessageAssistant(
                     content=content,
                     tool_calls=tool_calls or None,
-                    reasoning=reasoning,
                 )
             )
         elif message["role"] == "tool":
@@ -341,7 +368,9 @@ def chat_messages_from_openai(
             if isinstance(tool_content, str):
                 content = tool_content
             else:
-                content = [content_from_openai(c) for c in tool_content]
+                content = []
+                for tc in tool_content:
+                    content.extend(content_from_openai(tc))
             chat_messages.append(
                 ChatMessageTool(
                     content=content,
@@ -365,20 +394,40 @@ def tool_call_from_openai(tool_call: ChatCompletionMessageToolCallParam) -> Tool
 
 def content_from_openai(
     content: ChatCompletionContentPartParam | ChatCompletionContentPartRefusalParam,
-) -> Content:
+    parse_reasoning: bool = False,
+) -> list[Content]:
     if content["type"] == "text":
-        return ContentText(text=content["text"])
+        text = content["text"]
+        if parse_reasoning:
+            result = parse_content_with_reasoning(text)
+            if result:
+                return [
+                    ContentReasoning(
+                        reasoning=result.reasoning,
+                        signature=result.signature,
+                        redacted=result.redacted,
+                    ),
+                    ContentText(text=result.content),
+                ]
+            else:
+                return [ContentText(text=text)]
+        else:
+            return [ContentText(text=text)]
     elif content["type"] == "image_url":
-        return ContentImage(
-            image=content["image_url"]["url"], detail=content["image_url"]["detail"]
-        )
+        return [
+            ContentImage(
+                image=content["image_url"]["url"], detail=content["image_url"]["detail"]
+            )
+        ]
     elif content["type"] == "input_audio":
-        return ContentAudio(
-            audio=content["input_audio"]["data"],
-            format=content["input_audio"]["format"],
-        )
+        return [
+            ContentAudio(
+                audio=content["input_audio"]["data"],
+                format=content["input_audio"]["format"],
+            )
+        ]
     elif content["type"] == "refusal":
-        return ContentText(text=content["refusal"])
+        return [ContentText(text=content["refusal"])]
 
 
 def chat_message_assistant_from_openai(
@@ -388,11 +437,20 @@ def chat_message_assistant_from_openai(
     reasoning = getattr(message, "reasoning_content", None) or getattr(
         message, "reasoning", None
     )
+
+    msg_content = refusal or message.content or ""
+    if reasoning is not None:
+        content: str | list[Content] = [
+            ContentReasoning(reasoning=str(reasoning)),
+            ContentText(text=msg_content),
+        ]
+    else:
+        content = msg_content
+
     return ChatMessageAssistant(
-        content=refusal or message.content or "",
+        content=content,
         source="generate",
         tool_calls=chat_tool_calls_from_openai(message, tools),
-        reasoning=reasoning,
     )
 
 

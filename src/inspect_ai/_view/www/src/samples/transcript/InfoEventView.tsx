@@ -1,3 +1,4 @@
+import { FC } from "react";
 import { ApplicationIcons } from "../../appearance/icons";
 import { JSONPanel } from "../../components/JsonPanel";
 import { MarkdownDiv } from "../../components/MarkdownDiv";
@@ -18,7 +19,7 @@ interface InfoEventViewProps {
 /**
  * Renders the InfoEventView component.
  */
-export const InfoEventView: React.FC<InfoEventViewProps> = ({
+export const InfoEventView: FC<InfoEventViewProps> = ({
   id,
   event,
   eventState,
@@ -35,7 +36,7 @@ export const InfoEventView: React.FC<InfoEventViewProps> = ({
   return (
     <EventPanel
       id={id}
-      title="Info"
+      title={"Info" + (event.source ? ": " + event.source : "")}
       className={className}
       subTitle={formatDateTime(new Date(event.timestamp))}
       icon={ApplicationIcons.info}

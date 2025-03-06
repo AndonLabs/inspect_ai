@@ -1,8 +1,12 @@
+import clsx from "clsx";
+import { FC, Fragment, ReactNode } from "react";
+import ExpandablePanel from "../../components/ExpandablePanel";
 import { MarkdownDiv } from "../../components/MarkdownDiv";
 import { ContentTool } from "../../types";
 import {
   ContentAudio,
   ContentImage,
+  ContentReasoning,
   ContentText,
   ContentVideo,
   Format,
@@ -15,6 +19,7 @@ type ContentType =
   | string
   | string[]
   | ContentText
+  | ContentReasoning
   | ContentImage
   | ContentAudio
   | ContentVideo
@@ -26,6 +31,7 @@ interface MessageContentProps {
     | string[]
     | (
         | ContentText
+        | ContentReasoning
         | ContentImage
         | ContentAudio
         | ContentVideo
@@ -37,11 +43,12 @@ interface MessageContentProps {
  * Renders message content based on its type.
  * Supports rendering strings, images, and tools using specific renderers.
  */
-export const MessageContent: React.FC<MessageContentProps> = ({ contents }) => {
+export const MessageContent: FC<MessageContentProps> = ({ contents }) => {
   if (Array.isArray(contents)) {
     return contents.map((content, index) => {
       if (typeof content === "string") {
         return messageRenderers["text"].render(
+          `text-content-${index}`,
           {
             type: "text",
             text: content,
@@ -52,7 +59,11 @@ export const MessageContent: React.FC<MessageContentProps> = ({ contents }) => {
         if (content) {
           const renderer = messageRenderers[content.type];
           if (renderer) {
-            return renderer.render(content, index === contents.length - 1);
+            return renderer.render(
+              `text-${content.type}-${index}`,
+              content,
+              index === contents.length - 1,
+            );
           } else {
             console.error(`Unknown message content type '${content.type}'`);
           }
@@ -65,60 +76,92 @@ export const MessageContent: React.FC<MessageContentProps> = ({ contents }) => {
       type: "text",
       text: contents,
     };
-    return messageRenderers["text"].render(contentText, true);
+    return messageRenderers["text"].render(
+      "text-message-content",
+      contentText,
+      true,
+    );
   }
 };
 
 interface MessageRenderer {
-  render: (content: ContentType, isLast: boolean) => React.ReactNode;
+  render: (key: string, content: ContentType, isLast: boolean) => ReactNode;
 }
 
 const messageRenderers: Record<string, MessageRenderer> = {
   text: {
-    render: (content, isLast) => {
+    render: (key, content, isLast) => {
       const c = content as ContentText;
       return (
         <MarkdownDiv
+          key={key}
           markdown={c.text}
           className={isLast ? "no-last-para-padding" : ""}
         />
       );
     },
   },
+  reasoning: {
+    render: (key, content, isLast) => {
+      const r = content as ContentReasoning;
+      return (
+        <Fragment key={key}>
+          <div
+            className={clsx(
+              "text-style-label",
+              "text-style-secondary",
+              isLast ? "no-last-para-padding" : "",
+            )}
+          >
+            Reasoning
+          </div>
+          <ExpandablePanel collapse={true}>
+            <MarkdownDiv
+              markdown={
+                r.redacted
+                  ? "Reasoning encrypted by model provider."
+                  : r.reasoning
+              }
+            />
+          </ExpandablePanel>
+        </Fragment>
+      );
+    },
+  },
   image: {
-    render: (content) => {
+    render: (key, content) => {
       const c = content as ContentImage;
       if (c.image.startsWith("data:")) {
-        return <img src={c.image} className={styles.contentImage} />;
+        return <img src={c.image} className={styles.contentImage} key={key} />;
       } else {
-        return <code>{c.image}</code>;
+        return <code key={key}>{c.image}</code>;
       }
     },
   },
   audio: {
-    render: (content) => {
+    render: (key, content) => {
       const c = content as ContentAudio;
       return (
-        <audio controls>
+        <audio controls key={key}>
           <source src={c.audio} type={mimeTypeForFormat(c.format)} />
         </audio>
       );
     },
   },
   video: {
-    render: (content) => {
+    render: (key, content) => {
       const c = content as ContentVideo;
       return (
-        <video width="500" height="375" controls>
+        <video width="500" height="375" controls key={key}>
           <source src={c.video} type={mimeTypeForFormat(c.format)} />
         </video>
       );
     },
   },
   tool: {
-    render: (content) => {
+    render: (key, content) => {
       const c = content as ContentTool;
-      return <ToolOutput output={c.content} />;
+      return <ToolOutput output={c.content} key={key} />;
     },
   },
 };

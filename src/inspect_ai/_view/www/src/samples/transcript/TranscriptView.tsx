@@ -1,5 +1,4 @@
 import React, { RefObject, useCallback, useState } from "react";
-import { VirtualList } from "../../components/VirtualList";
 import { Events } from "../../types/log";
 import { ApprovalEventView } from "./ApprovalEventView";
 import { ErrorEventView } from "./ErrorEventView";
@@ -17,6 +16,8 @@ import { ToolEventView } from "./ToolEventView";
 import { EventNode, EventType, TranscriptEventState } from "./types";
 
 import clsx from "clsx";
+import { Virtuoso } from "react-virtuoso";
+import { SandboxEventView } from "./SandboxEventView";
 import styles from "./TranscriptView.module.css";
 
 interface TranscriptViewProps {
@@ -83,7 +84,7 @@ export const TranscriptVirtualList: React.FC<TranscriptVirtualListProps> = (
     (state: TranscriptEventState) => {
       setTranscriptState(state);
     },
-    [transcriptState, setTranscriptState],
+    [setTranscriptState],
   );
 
   return (
@@ -115,8 +116,10 @@ export const TranscriptVirtualListComponent: React.FC<
     (eventId: string, state: TranscriptEventState) => {
       setTranscriptState({ ...transcriptState, [eventId]: state });
     },
-    [setTranscriptState],
+    [transcriptState, setTranscriptState],
   );
+
+  const [followOutput, setFollowOutput] = useState(false);
 
   const renderRow = (item: EventNode, index: number) => {
     const bgClass = item.depth % 2 == 0 ? styles.darkenedBg : styles.normalBg;
@@ -139,12 +142,24 @@ export const TranscriptVirtualListComponent: React.FC<
   };
 
   return (
-    <VirtualList
+    <Virtuoso
+      customScrollParent={scrollRef?.current ? scrollRef.current : undefined}
+      style={{ height: "100%", width: "100%" }}
       data={eventNodes}
-      tabIndex={0}
-      renderRow={renderRow}
-      scrollRef={scrollRef}
-      className={styles.nodes}
+      itemContent={(index: number, data: EventNode) => {
+        return renderRow(data, index);
+      }}
+      increaseViewportBy={{ top: 1000, bottom: 1000 }}
+      overscan={{
+        main: 10,
+        reverse: 10,
+      }}
+      followOutput={followOutput}
+      atBottomStateChange={(atBottom: boolean) => {
+        setFollowOutput(atBottom);
+      }}
+      skipAnimationFrameInResizeObserver={true}
+      className={clsx("transcript")}
     />
   );
 };
@@ -164,6 +179,13 @@ export const TranscriptComponent: React.FC<TranscriptComponentProps> = ({
   setTranscriptState,
   eventNodes,
 }) => {
+  const setEventState = useCallback(
+    (state: TranscriptEventState, eventId: string) => {
+      setTranscriptState({ ...transcriptState, [eventId]: state });
+    },
+    [setTranscriptState, transcriptState],
+  );
+
   const rows = eventNodes.map((eventNode, index) => {
     const clz = [styles.eventNode];
     if (eventNode.depth % 2 == 0) {
@@ -174,12 +196,6 @@ export const TranscriptComponent: React.FC<TranscriptComponentProps> = ({
     }
 
     const eventId = `${id}-event${index}`;
-    const setEventState = useCallback(
-      (state: TranscriptEventState) => {
-        setTranscriptState({ ...transcriptState, [eventId]: state });
-      },
-      [setTranscriptState, transcriptState],
-    );
 
     const row = (
       <div
@@ -194,7 +210,9 @@ export const TranscriptComponent: React.FC<TranscriptComponentProps> = ({
           node={eventNode}
           className={clsx(clz)}
           eventState={transcriptState[eventId] || {}}
-          setEventState={setEventState}
+          setEventState={(state: TranscriptEventState) => {
+            setEventState(state, eventId);
+          }}
         />
       </div>
     );
@@ -373,6 +391,17 @@ export const RenderedEventNode: React.FC<RenderedEventNodeProps> = ({
     case "approval":
       return <ApprovalEventView event={node.event} className={className} />;
 
+    case "sandbox":
+      return (
+        <SandboxEventView
+          id={id}
+          event={node.event}
+          className={className}
+          eventState={eventState}
+          setEventState={setEventState}
+        />
+      );
+
     default:
       return null;
   }
@@ -387,8 +416,17 @@ const fixupEventStream = (events: Events) => {
   });
   const initEvent = events[initEventIndex];
 
-  const fixedUp = [...events];
-  if (initEvent) {
+  // Filter pending events
+  const finalEvents = events.filter((e) => !e.pending);
+
+  // See if the find an init step
+  const hasInitStep =
+    events.findIndex((e) => {
+      return e.event === "step" && e.name === "init";
+    }) !== -1;
+
+  const fixedUp = [...finalEvents];
+  if (!hasInitStep && initEvent) {
     fixedUp.splice(initEventIndex, 0, {
       timestamp: initEvent.timestamp,
       event: "step",
@@ -396,6 +434,7 @@ const fixupEventStream = (events: Events) => {
       type: null,
       name: "sample_init",
       pending: false,
+      working_start: 0,
     });
 
     fixedUp.splice(initEventIndex + 2, 0, {
@@ -405,6 +444,7 @@ const fixupEventStream = (events: Events) => {
       type: null,
       name: "sample_init",
       pending: false,
+      working_start: 0,
     });
   }
 

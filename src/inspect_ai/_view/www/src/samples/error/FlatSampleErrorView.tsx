@@ -1,7 +1,8 @@
 import { ApplicationIcons } from "../../appearance/icons";
 
 import clsx from "clsx";
-import styles from "./SampleErrorView.module.css";
+import { FC } from "react";
+import styles from "./FlatSampleErrorView.module.css";
 import { errorType } from "./error";
 
 interface FlatSampleErrorViewProps {
@@ -10,9 +11,7 @@ interface FlatSampleErrorViewProps {
 /**
  * Component to display a styled error message.
  */
-export const FlatSampleError: React.FC<FlatSampleErrorViewProps> = ({
-  message,
-}) => {
+export const FlatSampleError: FC<FlatSampleErrorViewProps> = ({ message }) => {
   return (
     <div className={clsx(styles.flatBody)}>
       <i className={clsx(ApplicationIcons.error, styles.iconSmall)} />

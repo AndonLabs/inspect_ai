@@ -1,12 +1,128 @@
-# Changelog
-
 ## Unreleased
 
+- Constrain model output to a particular JSON schema using [Structured Outputs](https://inspect.ai-safety-institute.org.uk/structured.html) (supported for OpenAI, Google, and Mistral).
+- New "HTTP Retries" display (replacing the "HTTP Rate Limits" display) which counts all retries and does so much more consistently and accurately across providers.
+- The `ModelAPI` class now has a `should_retry()` method that replaces the deprecated `is_rate_limit()` method.
+- The "Generate..." progress message in the Running Samples view now shows the number of retries for the active call to `generate()`.
+- New `inspect trace http` command which will show all HTTP requests for a run.
+- More consistent use of `max_retries` and `timeout` configuration options. These options now exclusively control Inspect's outer retry handler; model providers use their default behaviour for the inner request, which is typically 2-4 retries and a service-appropriate timeout.
+- Improved async implementation using AnyIO (can now optionally run Trio rather than asyncio as the [async backend](https://inspect.ai-safety-institute.org.uk/parallelism.html#async-backends)).
+- Model API: `ChatMessage` now includes an `id` field (defaults to auto-generated uuid).
+- Logging: Inspect no longer sets the global log level nor does it allow its own messages to propagate to the global handler (eliminating the possiblity of duplicate display). This should improve compatibility with applications that have their own custom logging configured. 
+- Tasks: For filesystem based tasks, no longer switch to the task file's directory during execution (directory switching still occurs during task loading). Specify `@task(chdir=True)` to preserve the previous behavior.
+- Bugfix: Fix issue with deserializing custom sandbox configuration objects.
+
+## v0.3.72 (03 March 2025)
+
+- Computer: Updated tool definition to match improvements in Claude Sonnet 3.7.
+
+## v0.3.71 (01 March 2025)
+
+- Anthropic: Support for [extended thinking](https://inspect.ai-safety-institute.org.uk/reasoning.html#claude-3.7-sonnet) features of Claude Sonnet 3.7 (minimum version of `anthropic` package bumped to 0.47.1).
+- Reasoning: `ContentReasoning` type for representing model reasoning blocks.
+- Reasoning: `reasoning_tokens` for setting maximum reasoning tokens (currently only supported by Claude Sonnet 3.7)
+- Reasoning: `reasoning_history` can now be specified as "none", "all", "last", or "auto" (which yields a provider specific recommended default).
+- Web Browser: [Various improvements](https://github.com/UKGovernmentBEIS/inspect_ai/pull/1314) to performance and robustness along with several bug fixes.
+- OpenAI: Provide long connection (reasoning friendly) socket defaults in http client 
+- OpenAI: Capture `reasoning_tokens` when reported.
+- OpenAI: Retry on rate limit requests with "Request too large".
+- OpenAI: Tolerate `None` for assistant content (can happen when there is a refusal).
+- Google: Retry requests on more HTTP status codes (selected 400 errors and all 500 errors). 
+- Event Log: Add `working_start` attribute to events and `completed` and `working_time` to model, tool, and subtask events.
+- Human Agent: Add `task quit` command for giving up on tasks.
+- Human Agent: Don't emit sandbox events for human agent
+- Inspect View: Improve rendering of JSON within logging events.
+- Inspect View: Improve virtualized rendering of Sample List, Sample Transcript, and Sample Messages.
+- Task Display: Let plugins display counters ('rich' and 'full' display modes only).
+- Inspect View: Fix layout issues with human agent terminal session playback.
+- Inspect View: Improve tool input / output appearance when rendered in VSCode.
+- Inspect View: Display reasoning tokens in model usage for the samples and for the complete eval.
+- Inspect View: Improve model api request / response output when rendere in VSCode.
+- Inspect View: Improve rendering of some tool calls in the transcript.
+- Bugfix: Fix audio and video inputs for new Google GenAI client.
+- Bugfix: Ensure that token limits are not enforced during model graded scoring.
+- Bugfix: Catch standard `TimeoutError` for running shell commands in the computer tool container.
+- Bugfix: Correct combination of consecutive string based user messages for Anthropic provider.
+
+## v0.3.70 (25 February 2025)
+
+- [working_limit](https://inspect.ai-safety-institute.org.uk/errors_and_limits.html#working-limit) option for specifying a maximum working time (e.g. model generation, tool calls, etc.) for samples.
+- Added `SandboxEvent` to transcript for recording sandbox execution and I/O.
+- Sandboxes: `as_type()` function for checked downcasting of `SandboxEnvironment`
+- Remove root logging handlers upon Inspect logger initialisation (as they result in lots of log spam if left installed).
+- Only explicitly set `state.completed=True` when entering scoring (`basic_agent()` no longer sets `completed` so can be used in longer compositions of solvers).
+- Add `uuid` property to `TaskState` and `EvalSample` (globally unique identifer for sample run).
+- Add `cleanup` to tasks for executing a function at the end of each sample run.
+- Agent `bridge()` is now compatible with the use of a custom `OPENAI_BASE_URL`.
+- Mistral: Bump required version of `mistralai` package to 1.5 (required for `working_limit`).
+- Truncate tracebacks included in evaluation log to a maximum of 1MB.
+- Compatiblity with textual version 2.0 (remove upper bound).
+- Align with HF datasets `fsspec` version contraints to avoid pip errors when installing alongside `datasets`.
+- Bugfix: Fix issue with tools that had an ordinary `dict` as a parameter.
+- Bugfix: Print the correct container `sample_id` for `--no-sandbox-cleanup`.
+
+## v0.3.69 (20 February 2025)
+
+- Google provider updated to use the [Google Gen AI SDK](https://googleapis.github.io/python-genai/), which is now the recommended API for Gemini 2.0 models.
+- Task display: Use cooperative cancellation for cancel buttons in task display.
+- Task display: Print task progress every 5 seconds for 'plain' display mode.
+- Task display: Handle click on running samples tab when there is no transcript.
+- Docker: Print stderr from `compose up` when no services startup successfully. 
+- Docker: Print sample id and epoch for each container when using `--no-sandbox-cleanup`
+- Mistral: Create and destroy client within generate.
+- Inspect View: Fix display of score dictionaries containing boolean values
+- Bugfix: Catch standard `TimeoutError` for subprocess timeouts (ensure kill/cleanup of timed out process).
+
+## v0.3.68 (19 February 2025)
+
+- Task display: Improve spacing/layout of final task display.
+- Textual: speicfy broader range of compatible versions (v0.86.2 to v1.0.0)
+
+## v0.3.67 (18 February 2025)
+
+- Memoize calls to `get_model()` so that model instances with the same parameters are cached and re-used (pass `memoize=False` to disable).
+- Async context manager for `Model` class for optional scoped usage of model clients.
+- New `assistant_message()` solver.
+- Prompt templates: Ignore template placeholders that don't map to passed parameters in `prompt_template()`, and system/user/assistant solvers.
+- Google: Handle system messages with content lists and input with system but no user messages.
+- Google: Ensure that a completion choice is provided even when none are returned by the service.
+- Inspect View: Improve the display of subtasks with no inputs or events.
+- Inspect View: Fix transcript display of phantom subtask or other phantom events.
+- Inspect View: Fix formatting issues in sample error display
+- Bugfix: Raise error for empty dataset (rather than providing a dummy sample).
+- Bugfix: Specify markup=False for textual static controls (stricter parser in textual 2.0 leading to exceptions).
+- Bugfix: Temporarily pin to textual==1.0.0 while they chase all of their regressions in 2.0
+
+## v0.3.66 (17 February 2025)
+
+- Docker: Correct compose file generation for Dockerfiles w/ custom stem or extension.
+- Escape brackets when rendering task config (another textual 2.0 fix)
+
+## v0.3.65 (16 February 2025)
+
+- Compatibility with textual 2.0 (which had several breaking changes).
+- Inspect View: Improve scorer display formatting.
+- Bugfix: Inspect view now correctly renders arrays with embedded `null` values.
+- Bugfix: Inspect view now correctly handles scorers with no metrics.
+
+## v0.3.64 (14 February 2025)
+
+- [Reference documentation](https://inspect.ai-safety-institute.org.uk/reference/) for Python API and CLI commands.
 - Add support for [clustered standard errors](https://inspect.ai-safety-institute.org.uk/scorers.html#clustered-standard-errors) via a new `cluster` parameter for the `stderr()` metric.
+- Improvements to [scoring workflow](https://inspect.ai-safety-institute.org.uk/scorers.html#sec-scorer-workflow) (`inspect score` command and `score()` function).
 - Metrics now take `list[SampleScore]` rather than `list[Score]` (previous signature is deprecated but still works with a warning).
 - Use a sample adjustment for the `var()` metric.
+- Google: Speculative fix for completion candidates not being returned as a list.
+- Python and Bash tools: Add `sandbox` argument for running in non-default sandboxes.
+- Transcript: Log `ScoreEvent` (with `intermediate=True`) when the `score()` function is called.
+- Transcript: Add `source` field to `InfoEvent` and use it for events logged by the human agent.
 - Docker: Support Dockerfiles with `.Dockerfile` extension.
+- Docker: Raise error when there is an explicitly configured `container_name` (incompatible with epochs > 1).
+- Docker: Dynamically set `compose up` timeout when there are `healthcheck` entries for services.
+- Log: Validate that `log_dir` is writeable at startup.
+- Log: Write eval config defaults into log file (rather than `None`).
 - Bugfix: Always honor level-level-transcript setting for transcript logging.
+- Bugfix: Fix some dynamic layout issues for sample sandbox view.
 
 ## v0.3.63 (07 February 2025)
 

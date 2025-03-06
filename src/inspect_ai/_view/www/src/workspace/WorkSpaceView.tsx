@@ -1,5 +1,12 @@
 import clsx from "clsx";
-import { Fragment, MouseEvent, RefObject, useCallback, useMemo } from "react";
+import {
+  FC,
+  Fragment,
+  MouseEvent,
+  RefObject,
+  useCallback,
+  useMemo,
+} from "react";
 import { SampleSummary } from "../api/types";
 import { EmptyPanel } from "../components/EmptyPanel";
 import { TabPanel, TabSet } from "../components/TabSet";
@@ -37,7 +44,7 @@ interface WorkSpaceViewProps {
   setWorkspaceTabScrollPosition: (tab: string, pos: number) => void;
 }
 
-export const WorkSpaceView: React.FC<WorkSpaceViewProps> = ({
+export const WorkSpaceView: FC<WorkSpaceViewProps> = ({
   logFileName,
   evalSpec,
   evalPlan,
@@ -78,32 +85,12 @@ export const WorkSpaceView: React.FC<WorkSpaceViewProps> = ({
     },
     [setSelectedTab],
   );
-
-  // Compute tab panels anytime the tabs change
-  const tabPanels = useMemo(() => {
-    return Object.keys(tabs).map((key) => {
-      const tab = tabs[key];
-      return (
-        <TabPanel
-          id={tab.id}
-          title={tab.label}
-          onSelected={onSelected}
-          selected={selectedTab === tab.id}
-          scrollable={!!tab.scrollable}
-          scrollRef={tab.scrollRef}
-          scrollPosition={workspaceTabScrollPositionRef.current?.[tab.id]}
-          setScrollPosition={useCallback(
-            (position: number) => {
-              onScroll(tab.id, position);
-            },
-            [onScroll],
-          )}
-        >
-          {tab.content()}
-        </TabPanel>
-      );
-    });
-  }, [tabs, selectedTab]);
+  const handleScroll = useCallback(
+    (tabid: string, position: number) => {
+      onScroll(tabid, position);
+    },
+    [onScroll],
+  );
 
   if (evalSpec === undefined) {
     return <EmptyPanel />;
@@ -150,7 +137,28 @@ export const WorkSpaceView: React.FC<WorkSpaceViewProps> = ({
               tabControlsClassName={clsx(styles.tabs, "text-size-smaller")}
               tabPanelsClassName={clsx(styles.tabPanels)}
             >
-              {tabPanels}
+              {Object.keys(tabs).map((key) => {
+                const tab = tabs[key];
+                return (
+                  <TabPanel
+                    key={tab.id}
+                    id={tab.id}
+                    title={tab.label}
+                    onSelected={onSelected}
+                    selected={selectedTab === tab.id}
+                    scrollable={!!tab.scrollable}
+                    scrollRef={tab.scrollRef}
+                    scrollPosition={
+                      workspaceTabScrollPositionRef.current?.[tab.id]
+                    }
+                    setScrollPosition={(position: number) => {
+                      handleScroll(tab.id, position);
+                    }}
+                  >
+                    {tab.content()}
+                  </TabPanel>
+                );
+              })}
             </TabSet>
           </div>
         </div>

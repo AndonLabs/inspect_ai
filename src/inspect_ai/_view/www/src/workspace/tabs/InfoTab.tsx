@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import { SampleSummary } from "../../api/types";
 import { MessageBand } from "../../components/MessageBand";
 import { PlanCard } from "../../plan/PlanCard";
@@ -22,7 +22,7 @@ interface PlanTabProps {
   evalError?: EvalError;
 }
 
-export const InfoTab: React.FC<PlanTabProps> = ({
+export const InfoTab: FC<PlanTabProps> = ({
   evalSpec,
   evalPlan,
   evalResults,
@@ -35,24 +35,6 @@ export const InfoTab: React.FC<PlanTabProps> = ({
   useEffect(() => {
     setHidden(false);
   }, [evalSpec, evalPlan, evalResults, evalStats, samples]);
-
-  const infoCards = [];
-  infoCards.push([
-    <PlanCard
-      evalSpec={evalSpec}
-      evalPlan={evalPlan}
-      scores={evalResults?.scores}
-    />,
-  ]);
-
-  if (evalStatus !== "started") {
-    infoCards.push(<UsageCard stats={evalStats} />);
-  }
-
-  // If there is error or progress, includes those within info
-  if (evalStatus === "error" && evalError) {
-    infoCards.unshift(<TaskErrorCard error={evalError} />);
-  }
 
   const showWarning =
     (!samples || samples.length === 0) &&
@@ -73,7 +55,15 @@ export const InfoTab: React.FC<PlanTabProps> = ({
         ""
       )}
       <div style={{ padding: "0.5em 1em 0 1em", width: "100%" }}>
-        {infoCards}
+        <PlanCard
+          evalSpec={evalSpec}
+          evalPlan={evalPlan}
+          scores={evalResults?.scores}
+        />
+        {evalStatus !== "started" ? <UsageCard stats={evalStats} /> : undefined}
+        {evalStatus === "error" && evalError ? (
+          <TaskErrorCard error={evalError} />
+        ) : undefined}
       </div>
     </div>
   );

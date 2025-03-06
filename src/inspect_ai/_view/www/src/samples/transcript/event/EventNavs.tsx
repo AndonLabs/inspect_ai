@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import { EventNav } from "./EventNav";
 
+import { FC } from "react";
 import styles from "./EventNavs.module.css";
 
 interface EventNavsProps {
@@ -12,7 +13,7 @@ interface EventNavsProps {
 /**
  * Component to render navigation items.
  */
-export const EventNavs: React.FC<EventNavsProps> = ({
+export const EventNavs: FC<EventNavsProps> = ({
   navs,
   selectedNav,
   setSelectedNav,
@@ -26,6 +27,7 @@ export const EventNavs: React.FC<EventNavsProps> = ({
       {navs.map((nav) => {
         return (
           <EventNav
+            key={nav.title}
             target={nav.target}
             title={nav.title}
             selectedNav={selectedNav}

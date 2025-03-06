@@ -14,7 +14,7 @@ import {
 import { tags } from "@lezer/highlight";
 import clsx from "clsx";
 import { EditorView, minimalSetup } from "codemirror";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { FC, useEffect, useMemo, useRef, useState } from "react";
 
 import { ScoreFilter } from "../../../types";
 import { EvalDescriptor } from "../../descriptor/types";
@@ -39,7 +39,8 @@ interface SampleFilterProps {
 const FILTER_TOOLTIP = `
 Filter samples by:
   • Scores
-  • Input and target regex search: input_contains, target_contains
+  • Samples with errors: has_error
+  • Input, target and error regex search: input_contains, target_contains, error_contains
 
 Supported expressions:
   • Arithmetic: +, -, *, /, mod, ^
@@ -146,7 +147,7 @@ const getLints = (
 };
 
 // Main component
-export const SampleFilter: React.FC<SampleFilterProps> = ({
+export const SampleFilter: FC<SampleFilterProps> = ({
   evalDescriptor,
   scoreFilter,
   setScoreFilter,

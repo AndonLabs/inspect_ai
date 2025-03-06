@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { FC, Fragment } from "react";
 import { ApplicationIcons } from "../../appearance/icons";
 import { MarkdownDiv } from "../../components/MarkdownDiv";
 import { MetaDataGrid } from "../../metadata/MetaDataGrid";
@@ -21,7 +21,7 @@ interface ScoreEventViewProps {
 /**
  * Renders the ScoreEventView component.
  */
-export const ScoreEventView: React.FC<ScoreEventViewProps> = ({
+export const ScoreEventView: FC<ScoreEventViewProps> = ({
   id,
   event,
   eventState,
@@ -37,7 +37,7 @@ export const ScoreEventView: React.FC<ScoreEventViewProps> = ({
   return (
     <EventPanel
       id={id}
-      title="Score"
+      title={(event.intermediate ? "Intermediate " : "") + "Score"}
       className={clsx(className, "text-size-small")}
       subTitle={formatDateTime(new Date(event.timestamp))}
       icon={ApplicationIcons.scorer}

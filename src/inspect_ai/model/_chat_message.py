@@ -2,8 +2,9 @@ from logging import getLogger
 from typing import Any, Literal, Type, Union
 
 from pydantic import BaseModel, Field, model_validator
+from shortuuid import uuid
 
-from inspect_ai._util.content import Content, ContentText
+from inspect_ai._util.content import Content, ContentReasoning, ContentText
 from inspect_ai.tool import ToolCall
 from inspect_ai.tool._tool_call import ToolCallError
 
@@ -13,8 +14,13 @@ logger = getLogger(__name__)
 
 
 class ChatMessageBase(BaseModel):
+    """Base class for chat messages."""
+
+    id: str = Field(default_factory=uuid)
+    """Unique identifer for message."""
+
     content: str | list[Content]
-    """Content (simple string or list of string|image content)"""
+    """Content (simple string or list of content objects)"""
 
     source: Literal["input", "generate"] | None = Field(default=None)
     """Source of message."""
@@ -31,9 +37,6 @@ class ChatMessageBase(BaseModel):
         property returns either the plain str content, or if the
         content is a list of text and images, the text items
         concatenated together (separated by newline)
-
-        Returns: Text content of `ChatMessage` If this message does
-          not have text content then "" is returned.
         """
         if isinstance(self.content, str):
             return self.content
@@ -62,15 +65,19 @@ class ChatMessageBase(BaseModel):
             self.content = text
         else:
             all_other = [content for content in self.content if content.type != "text"]
-            self.content = [ContentText(text=text)] + all_other
+            self.content = all_other + [ContentText(text=text)]
 
 
 class ChatMessageSystem(ChatMessageBase):
+    """System chat message."""
+
     role: Literal["system"] = Field(default="system")
     """Conversation role."""
 
 
 class ChatMessageUser(ChatMessageBase):
+    """User chat message."""
+
     role: Literal["user"] = Field(default="user")
     """Conversation role."""
 
@@ -79,14 +86,13 @@ class ChatMessageUser(ChatMessageBase):
 
 
 class ChatMessageAssistant(ChatMessageBase):
+    """Assistant chat message."""
+
     role: Literal["assistant"] = Field(default="assistant")
     """Conversation role."""
 
     tool_calls: list[ToolCall] | None = Field(default=None)
     """Tool calls made by the model."""
-
-    reasoning: str | None = Field(default=None)
-    """Reasoning content."""
 
     # Some OpenAI compatible REST endpoints include reasoning as a field alongside
     # content, however since this field doesn't exist in the OpenAI interface,
@@ -102,16 +108,36 @@ class ChatMessageAssistant(ChatMessageBase):
     @classmethod
     def extract_reasoning(cls, data: Any) -> Any:
         if isinstance(data, dict):
+            # cleave apart <think> blocks
             content = data.get("content", None)
             if isinstance(content, str):
                 parsed = parse_content_with_reasoning(content)
                 if parsed:
-                    data["reasoning"] = parsed.reasoning
-                    data["content"] = parsed.content
+                    data["content"] = [
+                        ContentReasoning(reasoning=parsed.reasoning),
+                        ContentText(text=parsed.content),
+                    ]
+            # migrate messages that has explicit 'reasoning' field
+            # (which was our original representation of reasoning)
+            reasoning = data.get("reasoning", None)
+            if isinstance(reasoning, str):
+                # ensure that content is a list
+                content = data.get("content", None)
+                if content is None:
+                    data["content"] = []
+                elif isinstance(content, str):
+                    data["content"] = [ContentText(text=content)]
+                elif not isinstance(content, list):
+                    data["content"] = []
+                data["content"].insert(0, ContentReasoning(reasoning=reasoning))
+
+                del data["reasoning"]
         return data
 
 
 class ChatMessageTool(ChatMessageBase):
+    """Tool chat message."""
+
     role: Literal["tool"] = Field(default="tool")
     """Conversation role."""
 

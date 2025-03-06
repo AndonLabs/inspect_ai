@@ -3,7 +3,7 @@ import "prismjs/components/prism-json";
 import "prismjs/components/prism-python";
 
 import clsx from "clsx";
-import { Fragment, useEffect, useMemo, useRef } from "react";
+import { FC, Fragment, useEffect, useMemo, useRef } from "react";
 import { ApplicationIcons } from "../../appearance/icons";
 import { MetaDataGrid } from "../../metadata/MetaDataGrid";
 import {
@@ -14,11 +14,6 @@ import {
   Tools1,
 } from "../../types/log";
 import { ModelUsagePanel } from "../../usage/ModelUsagePanel";
-import {
-  formatDateTime,
-  formatNumber,
-  formatPrettyDecimal,
-} from "../../utils/format";
 import { ChatView } from "../chat/ChatView";
 import { EventPanel } from "./event/EventPanel";
 import { EventSection } from "./event/EventSection";
@@ -26,6 +21,8 @@ import { TranscriptEventState } from "./types";
 
 import { highlightElement } from "prismjs";
 import styles from "./ModelEventView.module.css";
+import { EventTimingPanel } from "./event/EventTimingPanel";
+import { formatTiming, formatTitle } from "./event/utils";
 
 interface ModelEventViewProps {
   id: string;
@@ -38,7 +35,7 @@ interface ModelEventViewProps {
 /**
  * Renders the StateEventView component.
  */
-export const ModelEventView: React.FC<ModelEventViewProps> = ({
+export const ModelEventView: FC<ModelEventViewProps> = ({
   id,
   event,
   eventState,
@@ -47,15 +44,6 @@ export const ModelEventView: React.FC<ModelEventViewProps> = ({
 }) => {
   const totalUsage = event.output.usage?.total_tokens;
   const callTime = event.output.time;
-
-  const subItems = [];
-  if (totalUsage) {
-    subItems.push(`${formatNumber(totalUsage)} tokens`);
-  }
-  if (callTime) {
-    subItems.push(`${formatPrettyDecimal(callTime)} sec`);
-  }
-  const subtitle = subItems.length > 0 ? `(${subItems.join(", ")})` : "";
 
   // Note: despite the type system saying otherwise, this has appeared empircally
   // to sometimes be undefined
@@ -83,8 +71,8 @@ export const ModelEventView: React.FC<ModelEventViewProps> = ({
     <EventPanel
       id={id}
       className={className}
-      title={`Model Call: ${event.model} ${subtitle}`}
-      subTitle={formatDateTime(new Date(event.timestamp))}
+      title={formatTitle(`Model Call: ${event.model}`, totalUsage, callTime)}
+      subTitle={formatTiming(event.timestamp, event.working_start)}
       icon={ApplicationIcons.model}
       selectedNav={eventState.selectedNav || ""}
       setSelectedNav={(selectedNav) => {
@@ -114,6 +102,15 @@ export const ModelEventView: React.FC<ModelEventViewProps> = ({
             {event.output.usage !== null ? (
               <ModelUsagePanel usage={event.output.usage} />
             ) : undefined}
+          </EventSection>
+
+          <EventSection title="Timing" className={styles.tableSelection}>
+            <EventTimingPanel
+              timestamp={event.timestamp}
+              completed={event.completed}
+              working_start={event.working_start}
+              working_time={event.working_time}
+            />
           </EventSection>
 
           <EventSection
@@ -150,7 +147,7 @@ interface APIViewProps {
   className?: string | string[];
 }
 
-export const APIView: React.FC<APIViewProps> = ({ call, className }) => {
+export const APIView: FC<APIViewProps> = ({ call, className }) => {
   if (!call) {
     return null;
   }
@@ -172,11 +169,7 @@ interface APICodeCellProps {
   contents: Request | Response;
 }
 
-export const APICodeCell: React.FC<APICodeCellProps> = ({ id, contents }) => {
-  if (!contents) {
-    return null;
-  }
-
+export const APICodeCell: FC<APICodeCellProps> = ({ id, contents }) => {
   const codeRef = useRef<HTMLElement>(null);
   const sourceCode = useMemo(() => {
     return JSON.stringify(contents, undefined, 2);
@@ -186,11 +179,15 @@ export const APICodeCell: React.FC<APICodeCellProps> = ({ id, contents }) => {
     if (codeRef.current) {
       highlightElement(codeRef.current);
     }
-  }, [codeRef.current, contents]);
+  }, [contents]);
+
+  if (!contents) {
+    return null;
+  }
 
   return (
-    <div>
-      <pre className={styles.codePre}>
+    <div className={clsx("model-call")}>
+      <pre className={clsx(styles.codePre)}>
         <code
           id={id}
           ref={codeRef}
@@ -207,10 +204,10 @@ interface ToolConfigProps {
   tools: Tools1;
 }
 
-const ToolsConfig: React.FC<ToolConfigProps> = ({ tools }) => {
-  const toolEls = tools.map((tool) => {
+const ToolsConfig: FC<ToolConfigProps> = ({ tools }) => {
+  const toolEls = tools.map((tool, idx) => {
     return (
-      <Fragment>
+      <Fragment key={`${tool.name}-${idx}`}>
         <div className={clsx("text-style-label", "text-style-secondary")}>
           {tool.name}
         </div>

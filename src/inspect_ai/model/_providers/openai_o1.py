@@ -69,6 +69,16 @@ async def generate_o1(
         usage=ModelUsage(
             input_tokens=completion.usage.prompt_tokens,
             output_tokens=completion.usage.completion_tokens,
+            input_tokens_cache_read=(
+                completion.usage.prompt_tokens_details.cached_tokens
+                if completion.usage.prompt_tokens_details is not None
+                else None  # openai only have cache read stats/pricing.
+            ),
+            reasoning_tokens=(
+                completion.usage.completion_tokens_details.reasoning_tokens
+                if completion.usage.completion_tokens_details is not None
+                else None
+            ),
             total_tokens=completion.usage.total_tokens,
         )
         if completion.usage
@@ -97,7 +107,7 @@ def chat_messages(
 ) -> list[ChatCompletionMessageParam]:
     # o1 does not allow system messages so convert system -> user
     messages: list[ChatMessage] = [
-        ChatMessageUser(content=message.content)
+        ChatMessageUser(id=message.id, content=message.content)
         if message.role == "system"
         else message
         for message in input

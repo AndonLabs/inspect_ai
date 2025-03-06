@@ -1,10 +1,10 @@
 import clsx from "clsx";
-import { Fragment } from "react";
+import { FC, Fragment } from "react";
 import { ApplicationIcons } from "../../appearance/icons";
 import { MetaDataView } from "../../metadata/MetaDataView";
-import { Input2, Input4, Result1, SubtaskEvent } from "../../types/log";
-import { formatDateTime } from "../../utils/format";
+import { Input2, Input5, Result2, SubtaskEvent } from "../../types/log";
 import { EventPanel } from "./event/EventPanel";
+import { formatTiming, formatTitle } from "./event/utils";
 import styles from "./SubtaskEventView.module.css";
 import { TranscriptView } from "./TranscriptView";
 import { TranscriptEventState } from "./types";
@@ -21,7 +21,7 @@ interface SubtaskEventViewProps {
 /**
  * Renders the StateEventView component.
  */
-export const SubtaskEventView: React.FC<SubtaskEventViewProps> = ({
+export const SubtaskEventView: FC<SubtaskEventViewProps> = ({
   id,
   event,
   eventState,
@@ -30,19 +30,6 @@ export const SubtaskEventView: React.FC<SubtaskEventViewProps> = ({
   className,
 }) => {
   // Render Forks specially
-
-  const transcript =
-    event.events.length > 0 ? (
-      <TranscriptView
-        id={`${id}-subtask`}
-        data-name="Transcript"
-        events={event.events}
-        depth={depth + 1}
-      />
-    ) : (
-      ""
-    );
-
   const body =
     event.type === "fork" ? (
       <div title="Summary" className={clsx(styles.summary)}>
@@ -51,7 +38,16 @@ export const SubtaskEventView: React.FC<SubtaskEventViewProps> = ({
           <Rendered values={event.input} />
         </div>
         <div className={clsx("text-style-label")}>Transcript</div>
-        {transcript}
+        {event.events.length > 0 ? (
+          <TranscriptView
+            id={`${id}-subtask`}
+            data-name="Transcript"
+            events={event.events}
+            depth={depth + 1}
+          />
+        ) : (
+          <None />
+        )}
       </div>
     ) : (
       <Fragment>
@@ -60,7 +56,14 @@ export const SubtaskEventView: React.FC<SubtaskEventViewProps> = ({
           input={event.input}
           result={event.result}
         />
-        {transcript}
+        {event.events.length > 0 ? (
+          <TranscriptView
+            id={`${id}-subtask`}
+            data-name="Transcript"
+            events={event.events}
+            depth={depth + 1}
+          />
+        ) : undefined}
       </Fragment>
     );
 
@@ -70,8 +73,12 @@ export const SubtaskEventView: React.FC<SubtaskEventViewProps> = ({
     <EventPanel
       id={id}
       className={className}
-      title={`${type}: ${event.name}`}
-      subTitle={formatDateTime(new Date(event.timestamp))}
+      title={formatTitle(
+        `${type}: ${event.name}`,
+        undefined,
+        event.working_time,
+      )}
+      subTitle={formatTiming(event.timestamp, event.working_start)}
       collapse={false}
       selectedNav={eventState.selectedNav || ""}
       setSelectedNav={(selectedNav) => {
@@ -88,25 +95,25 @@ export const SubtaskEventView: React.FC<SubtaskEventViewProps> = ({
 };
 
 interface SubtaskSummaryProps {
-  input: Input2 | Input4;
-  result: Result1;
+  input: Input2 | Input5;
+  result: Result2;
 }
 /**
  * Renders the StateEventView component.
  */
-const SubtaskSummary: React.FC<SubtaskSummaryProps> = ({ input, result }) => {
-  result = typeof result === "object" ? result : { result };
+const SubtaskSummary: FC<SubtaskSummaryProps> = ({ input, result }) => {
+  const output = typeof result === "object" ? result : { result };
   return (
     <div className={clsx(styles.subtaskSummary)}>
       <div className={clsx("text-style-label")}>Input</div>
       <div className={clsx("text-size-large", styles.subtaskLabel)}></div>
       <div className={clsx("text-style-label")}>Output</div>
-      <Rendered values={input} />
+      {input ? <Rendered values={input} /> : undefined}
       <div className={clsx("text-size-title-secondary", styles.subtaskLabel)}>
         <i className={ApplicationIcons.arrows.right} />
       </div>
       <div>
-        <Rendered values={result} />
+        <Rendered values={output} />
       </div>
     </div>
   );
@@ -120,14 +127,26 @@ interface RenderedProps {
  * Recursively renders content based on the type of `values`.
 value.
  */
-const Rendered: React.FC<RenderedProps> = ({ values }) => {
+const Rendered: FC<RenderedProps> = ({ values }) => {
   if (Array.isArray(values)) {
     return values.map((val) => {
       return <Rendered values={val} />;
     });
   } else if (values && typeof values === "object") {
-    return <MetaDataView entries={values as Record<string, unknown>} />;
+    if (Object.keys(values).length === 0) {
+      return <None />;
+    } else {
+      return <MetaDataView entries={values as Record<string, unknown>} />;
+    }
   } else {
     return values;
   }
+};
+
+const None: FC = () => {
+  return (
+    <span className={clsx("text-size-small", "text-style-secondary")}>
+      [None]
+    </span>
+  );
 };

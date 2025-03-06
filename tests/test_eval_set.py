@@ -9,6 +9,7 @@ from test_helpers.utils import (
     failing_task,
     failing_task_deterministic,
     keyboard_interrupt,
+    skip_if_trio,
     sleep_for_solver,
 )
 
@@ -131,11 +132,11 @@ def test_eval_set_identifiers() -> None:
 
 
 def test_schedule_pending_tasks() -> None:
-    task1 = Task(dataset=[], name="task1")
-    task2 = Task(dataset=[], name="task2")
-    task3 = Task(dataset=[], name="task3")
-    task4 = Task(dataset=[], name="task4")
-    task5 = Task(dataset=[], name="task5")
+    task1 = Task(name="task1")
+    task2 = Task(name="task2")
+    task3 = Task(name="task3")
+    task4 = Task(name="task4")
+    task5 = Task(name="task5")
     openai = get_model("mockllm/openai")
     anthropic = get_model("mockllm/anthropic")
     mock = get_model("mockllm/model")
@@ -226,6 +227,7 @@ def test_latest_completed_task_eval_logs() -> None:
 
 
 @pytest.mark.slow
+@skip_if_trio
 def test_eval_set_s3(mock_s3) -> None:
     success, logs = eval_set(
         tasks=failing_task(rate=0, samples=1),

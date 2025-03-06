@@ -36,7 +36,7 @@ import { WorkSpace } from "./workspace/WorkSpace";
 
 import ClipboardJS from "clipboard";
 import clsx from "clsx";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ClientAPI,
   EvalLogHeader,
@@ -72,7 +72,7 @@ interface AppProps {
 /**
  * Renders the Main Application
  */
-export const App: React.FC<AppProps> = ({
+export const App: FC<AppProps> = ({
   api,
   applicationState,
   saveApplicationState,
@@ -990,6 +990,7 @@ const defaultScorers = (log: EvalSummary): Array<ScorerInfo> => {
       }, [] as Array<ScorerInfo>);
   } else if (log.sampleSummaries && log.sampleSummaries.length > 0) {
     const scores = log.sampleSummaries[0].scores;
+
     if (scores !== null) {
       return Object.keys(scores).map((key) => {
         return {

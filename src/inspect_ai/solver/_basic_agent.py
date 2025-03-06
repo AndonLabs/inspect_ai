@@ -24,7 +24,7 @@ logger = getLogger(__name__)
 
 DEFAULT_SYSTEM_MESSAGE = """
 You are a helpful assistant attempting to submit the correct answer. You have
-several functions available to help with finding the answer. Each message may
+several functions available to help with finding the answer. Each message
 may perform one function call. You will see the result of the function right
 after sending the message. If you need to perform multiple actions, you can
 always send more messages with subsequent function calls. Do some reasoning
@@ -81,31 +81,28 @@ def basic_agent(
     alternate conversion scheme as required via `score_value`.
 
     Args:
-       init: (Solver | list[Solver] | None): Agent initialisation
-         (defaults to system_message with basic ReAct prompt)
-       tools (list[Tool | ToolDef] | Solver | None): Tools available for the agent. Either a
-         list of tools or a Solver that can yield dynamic tools per-sample.
-       cache: (bool | CachePolicy): Caching behaviour for generate responses
-         (defaults to no caching).
-       max_attempts (int): Maximum number of submissions to accept before terminating.
-       message_limit (int | None): Limit on messages in sample before terminating agent.
+       init: Agent initialisation (defaults to system_message with basic ReAct prompt)
+       tools: Tools available for the agent. Either a list of tools or a Solver that
+          can yield dynamic tools per-sample.
+       cache: Caching behaviour for generate responses (defaults to no caching).
+       max_attempts: Maximum number of submissions to accept before terminating.
+       message_limit: Limit on messages in sample before terminating agent.
           If not specified, will use limit_messages defined for the task. If there is none
           defined for the task, 50 will be used as a default.
-       token_limit (int | None): Limit on tokens used in sample before terminating agent.
-       max_tool_output (int | None): Maximum output length (in bytes).
+       token_limit: Limit on tokens used in sample before terminating agent.
+       max_tool_output: Maximum output length (in bytes).
           Defaults to max_tool_output from active GenerateConfig.
-       score_value (ValueToFloat): Function used to extract float from scores (defaults
-         to standard value_to_float())
-       incorrect_message (str | Callable[[TaskState, list[Score]], str | Awaitable[str]]):
-         User message reply for an incorrect submission from the model. Alternatively,
-         a function which returns a message (function may optionally be async)
-       continue_message (str): User message to urge the model to continue when it
-         doesn't make a tool call.
-       submit_name (str): Name for tool used to make submissions
-        (defaults to 'submit')
-       submit_description (str): Description of submit tool (defaults to
-        'Submit an answer for evaluation')
-       **kwargs (Any): Deprecated arguments for backward compatibility.
+       score_value: Function used to extract float from scores (defaults
+          to standard value_to_float())
+       incorrect_message: User message reply for an incorrect submission from the model.
+          Alternatively, a function which returns a message (function may optionally be async)
+       continue_message: User message to urge the model to continue when it
+          doesn't make a tool call.
+       submit_name: Name for tool used to make submissions
+          (defaults to 'submit')
+       submit_description: Description of submit tool (defaults to
+          'Submit an answer for evaluation')
+       **kwargs: Deprecated arguments for backward compatibility.
 
     Returns:
         Plan for agent.
@@ -209,13 +206,11 @@ def basic_agent(
                             # exit if we are at max_attempts
                             attempts += 1
                             if attempts >= max_attempts:
-                                state.completed = True
                                 break
 
                             # exit if the submission is successful
                             answer_scores = await score(state)
                             if score_value_fn(answer_scores[0].value) == 1.0:
-                                state.completed = True
                                 break
 
                             # otherwise notify the model that it was incorrect and continue

@@ -1,7 +1,15 @@
 import clsx from "clsx";
 import { ProgressBar } from "./ProgressBar";
 
-import { ReactNode, UIEvent, useCallback, useEffect, useRef } from "react";
+import {
+  FC,
+  ReactNode,
+  RefObject,
+  UIEvent,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
 import styles from "./LargeModal.module.css";
 
 export interface ModalTool {
@@ -22,17 +30,17 @@ interface LargeModalProps {
   detail: string;
   detailTools?: ModalTools;
   showProgress: boolean;
-  footer?: React.ReactNode;
+  footer?: ReactNode;
   visible: boolean;
   onkeyup: (e: any) => void;
   onHide: () => void;
-  scrollRef: React.RefObject<HTMLDivElement | null>;
-  initialScrollPositionRef: React.RefObject<number>;
+  scrollRef: RefObject<HTMLDivElement | null>;
+  initialScrollPositionRef: RefObject<number>;
   setInitialScrollPosition: (position: number) => void;
   children: ReactNode;
 }
 
-export const LargeModal: React.FC<LargeModalProps> = ({
+export const LargeModal: FC<LargeModalProps> = ({
   id,
   title,
   detail,
@@ -56,7 +64,9 @@ export const LargeModal: React.FC<LargeModalProps> = ({
 
   // Support restoring the scroll position
   // but only do this for the first time that the children are set
-  scrollRef = scrollRef || useRef(null);
+  const modalRef = useRef(null);
+  scrollRef = scrollRef || modalRef;
+
   useEffect(() => {
     if (scrollRef.current) {
       setTimeout(() => {
@@ -76,54 +86,6 @@ export const LargeModal: React.FC<LargeModalProps> = ({
       setInitialScrollPosition(e.currentTarget.scrollTop);
     },
     [setInitialScrollPosition],
-  );
-
-  // Capture header elements
-  const headerEls = [];
-  // The title
-  headerEls.push(
-    <div className={clsx("modal-title", "text-size-smaller", styles.title)}>
-      {title || ""}
-    </div>,
-  );
-
-  // A centered text element with tools to the left and right
-  if (detail) {
-    headerEls.push(
-      <div className={styles.detail}>
-        {detailTools?.left
-          ? detailTools.left.map((tool) => {
-              return <TitleTool {...tool} />;
-            })
-          : ""}
-        <div className={clsx("text-size-smaller", styles.detailText)}>
-          <div>{detail}</div>
-        </div>
-
-        {detailTools?.right
-          ? detailTools.right.map((tool) => {
-              return <TitleTool {...tool} />;
-            })
-          : ""}
-      </div>,
-    );
-  }
-
-  // The close 'x'
-  headerEls.push(
-    <button
-      type="button"
-      className={clsx(
-        "btn",
-        "btn-close-large-dialog",
-        "text-size-larger",
-        styles.close,
-      )}
-      onClick={onHide}
-      aria-label="Close"
-    >
-      <HtmlEntity html={"&times;"} />
-    </button>,
   );
 
   return (
@@ -147,7 +109,45 @@ export const LargeModal: React.FC<LargeModalProps> = ({
         role="document"
       >
         <div className={clsx("modal-content", styles.content)}>
-          <div className={clsx("modal-header", styles.header)}>{headerEls}</div>
+          <div className={clsx("modal-header", styles.header)}>
+            <div
+              className={clsx("modal-title", "text-size-smaller", styles.title)}
+            >
+              {title || ""}
+            </div>
+
+            {detail ? (
+              <div className={styles.detail}>
+                {detailTools?.left
+                  ? detailTools.left.map((tool, idx) => {
+                      return <TitleTool key={`tool-left-${idx}`} {...tool} />;
+                    })
+                  : ""}
+                <div className={clsx("text-size-smaller", styles.detailText)}>
+                  <div>{detail}</div>
+                </div>
+
+                {detailTools?.right
+                  ? detailTools.right.map((tool, idx) => {
+                      return <TitleTool key={`tool-right-${idx}`} {...tool} />;
+                    })
+                  : ""}
+              </div>
+            ) : undefined}
+            <button
+              type="button"
+              className={clsx(
+                "btn",
+                "btn-close-large-dialog",
+                "text-size-larger",
+                styles.close,
+              )}
+              onClick={onHide}
+              aria-label="Close"
+            >
+              <HtmlEntity html={"&times;"} />
+            </button>
+          </div>
           <ProgressBar animating={showProgress} />
           <div className={"modal-body"} ref={scrollRef} onScroll={onScroll}>
             {children}
@@ -163,7 +163,7 @@ interface HtmlEntityProps {
   html: string;
 }
 
-const HtmlEntity: React.FC<HtmlEntityProps> = ({ html }) => (
+const HtmlEntity: FC<HtmlEntityProps> = ({ html }) => (
   <span dangerouslySetInnerHTML={{ __html: html }} />
 );
 
@@ -174,12 +174,7 @@ interface TitleToolProps {
   onClick: () => void;
 }
 
-const TitleTool: React.FC<TitleToolProps> = ({
-  label,
-  icon,
-  enabled,
-  onClick,
-}) => {
+const TitleTool: FC<TitleToolProps> = ({ label, icon, enabled, onClick }) => {
   return (
     <button
       type="button"

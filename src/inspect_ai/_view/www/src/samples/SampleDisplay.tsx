@@ -10,7 +10,7 @@ import { ToolButton } from "../components/ToolButton";
 import { SampleScoreView } from "./scores/SampleScoreView";
 
 import clsx from "clsx";
-import { Fragment, MouseEvent, RefObject } from "react";
+import { FC, Fragment, MouseEvent, RefObject } from "react";
 import { Card, CardBody, CardHeader } from "../components/Card";
 import { EmptyPanel } from "../components/EmptyPanel";
 import { JSONPanel } from "../components/JsonPanel";
@@ -24,6 +24,7 @@ import {
 } from "../constants";
 import { EvalSample } from "../types/log";
 import { ModelTokenTable } from "../usage/ModelTokenTable";
+import { formatTime } from "../utils/format";
 import { printHeadingHtml, printHtml } from "../utils/print";
 import { ChatViewVirtualList } from "./chat/ChatViewVirtualList";
 import { SamplesDescriptor } from "./descriptor/samplesDescriptor";
@@ -43,7 +44,7 @@ interface SampleDisplayProps {
 /**
  * Component to display a sample with relevant context and visibility control.
  */
-export const SampleDisplay: React.FC<SampleDisplayProps> = ({
+export const SampleDisplay: FC<SampleDisplayProps> = ({
   id,
   sample,
   sampleDescriptor,
@@ -77,6 +78,7 @@ export const SampleDisplay: React.FC<SampleDisplayProps> = ({
   if (!isVscode()) {
     tools.push(
       <ToolButton
+        key="sample-print-tool"
         label="Print"
         icon={ApplicationIcons.copy}
         onClick={() => {
@@ -101,6 +103,7 @@ export const SampleDisplay: React.FC<SampleDisplayProps> = ({
       >
         {sample.events && sample.events.length > 0 ? (
           <TabPanel
+            key={kSampleTranscriptTabId}
             id={kSampleTranscriptTabId}
             className="sample-tab"
             title="Transcript"
@@ -120,6 +123,7 @@ export const SampleDisplay: React.FC<SampleDisplayProps> = ({
           </TabPanel>
         ) : null}
         <TabPanel
+          key={kSampleMessagesTabId}
           id={kSampleMessagesTabId}
           className={clsx("sample-tab", styles.fullWidth)}
           title="Messages"
@@ -138,6 +142,7 @@ export const SampleDisplay: React.FC<SampleDisplayProps> = ({
         </TabPanel>
         {scorerNames.length === 1 ? (
           <TabPanel
+            key={kSampleScoringTabId}
             id={kSampleScoringTabId}
             className="sample-tab"
             title="Scoring"
@@ -156,6 +161,7 @@ export const SampleDisplay: React.FC<SampleDisplayProps> = ({
               const tabId = `score-${scorer}`;
               return (
                 <TabPanel
+                  key={tabId}
                   id={tabId}
                   className="sample-tab"
                   title={scorer}
@@ -175,7 +181,7 @@ export const SampleDisplay: React.FC<SampleDisplayProps> = ({
         {sampleMetadatas.length > 0 ? (
           <TabPanel
             id={kSampleMetdataTabId}
-            className="sample-tab"
+            className={clsx("sample-tab")}
             title="Metadata"
             onSelected={onSelectedTab}
             selected={selectedTab === kSampleMetdataTabId}
@@ -208,7 +214,11 @@ export const SampleDisplay: React.FC<SampleDisplayProps> = ({
             selected={selectedTab === kSampleJsonTabId}
           >
             <div className={clsx(styles.padded, styles.fullWidth)}>
-              <JSONPanel data={sample} simple={true} />
+              <JSONPanel
+                data={sample}
+                simple={true}
+                className={clsx("text-size-small")}
+              />
             </div>
           </TabPanel>
         ) : null}
@@ -217,11 +227,12 @@ export const SampleDisplay: React.FC<SampleDisplayProps> = ({
   );
 };
 
-const metadataViewsForSample = (_id: string, sample: EvalSample) => {
+const metadataViewsForSample = (id: string, sample: EvalSample) => {
   const sampleMetadatas = [];
+
   if (sample.model_usage && Object.keys(sample.model_usage).length > 0) {
     sampleMetadatas.push(
-      <Card>
+      <Card key={`sample-usage-${id}`}>
         <CardHeader label="Usage" />
         <CardBody>
           <ModelTokenTable
@@ -233,9 +244,34 @@ const metadataViewsForSample = (_id: string, sample: EvalSample) => {
     );
   }
 
+  if (
+    sample.total_time !== undefined &&
+    sample.total_time !== null &&
+    sample.working_time !== undefined &&
+    sample.working_time !== null
+  ) {
+    sampleMetadatas.push(
+      <Card key={`sample-time-${id}`}>
+        <CardHeader label="Time" />
+        <CardBody>
+          <div className={clsx(styles.timePanel, "text-size-smaller")}>
+            <div className={clsx("text-style-label", "text-style-secondary")}>
+              Working
+            </div>
+            <div>{formatTime(sample.working_time)}</div>
+            <div className={clsx("text-style-label", "text-style-secondary")}>
+              Total
+            </div>
+            <div>{formatTime(sample.total_time)}</div>
+          </div>
+        </CardBody>
+      </Card>,
+    );
+  }
+
   if (Object.keys(sample?.metadata).length > 0) {
     sampleMetadatas.push(
-      <Card>
+      <Card key={`sample-metadata-${id}`}>
         <CardHeader label="Metadata" />
         <CardBody>
           <MetaDataView
@@ -250,7 +286,7 @@ const metadataViewsForSample = (_id: string, sample: EvalSample) => {
 
   if (Object.keys(sample?.store).length > 0) {
     sampleMetadatas.push(
-      <Card>
+      <Card key={`sample-store-${id}`}>
         <CardHeader label="Store" />
         <CardBody>
           <MetaDataView

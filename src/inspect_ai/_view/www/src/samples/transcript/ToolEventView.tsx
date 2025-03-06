@@ -1,6 +1,5 @@
 import { ApplicationIcons } from "../../appearance/icons";
 import { ToolEvent } from "../../types/log";
-import { formatDateTime } from "../../utils/format";
 import { resolveToolInput } from "../chat/tools/tool";
 import { ToolCallView } from "../chat/tools/ToolCallView";
 import { ApprovalEventView } from "./ApprovalEventView";
@@ -8,6 +7,8 @@ import { EventPanel } from "./event/EventPanel";
 import { TranscriptView } from "./TranscriptView";
 import { TranscriptEventState } from "./types";
 
+import { FC, useMemo } from "react";
+import { formatTiming, formatTitle } from "./event/utils";
 import styles from "./ToolEventView.module.css";
 
 interface ToolEventViewProps {
@@ -22,7 +23,7 @@ interface ToolEventViewProps {
 /**
  * Renders the ToolEventView component.
  */
-export const ToolEventView: React.FC<ToolEventViewProps> = ({
+export const ToolEventView: FC<ToolEventViewProps> = ({
   id,
   event,
   eventState,
@@ -31,9 +32,9 @@ export const ToolEventView: React.FC<ToolEventViewProps> = ({
   className,
 }) => {
   // Extract tool input
-  const { input, functionCall, inputType } = resolveToolInput(
-    event.function,
-    event.arguments,
+  const { input, functionCall, highlightLanguage } = useMemo(
+    () => resolveToolInput(event.function, event.arguments),
+    [event.function, event.arguments],
   );
 
   // Find an approval if there is one
@@ -45,9 +46,9 @@ export const ToolEventView: React.FC<ToolEventViewProps> = ({
   return (
     <EventPanel
       id={id}
-      title={title}
+      title={formatTitle(title, undefined, event.working_time)}
       className={className}
-      subTitle={formatDateTime(new Date(event.timestamp))}
+      subTitle={formatTiming(event.timestamp, event.working_start)}
       icon={ApplicationIcons.solvers.use_tools}
       selectedNav={eventState.selectedNav || ""}
       setSelectedNav={(selectedNav) => {
@@ -62,7 +63,7 @@ export const ToolEventView: React.FC<ToolEventViewProps> = ({
         <ToolCallView
           functionCall={functionCall}
           input={input}
-          inputType={inputType}
+          highlightLanguage={highlightLanguage}
           output={event.error?.message || event.result}
           mode="compact"
           view={event.view ? event.view : undefined}

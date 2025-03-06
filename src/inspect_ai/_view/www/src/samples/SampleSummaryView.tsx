@@ -1,11 +1,11 @@
 import clsx from "clsx";
 import { MarkdownDiv } from "../components/MarkdownDiv";
-import { EvalSample } from "../types/log";
-import { arrayToString, inputString } from "../utils/format";
+import { EvalSample, WorkingTime } from "../types/log";
+import { arrayToString, formatTime, inputString } from "../utils/format";
 import { SamplesDescriptor } from "./descriptor/samplesDescriptor";
 import { FlatSampleError } from "./error/FlatSampleErrorView";
 
-import { ReactNode } from "react";
+import { FC, ReactNode } from "react";
 import styles from "./SampleSummaryView.module.css";
 
 interface SampleSummaryViewProps {
@@ -20,12 +20,13 @@ interface SummaryColumn {
   size: string;
   center?: boolean;
   clamp?: boolean;
+  title?: string;
 }
 
 /**
  * Component to display a sample with relevant context and visibility control.
  */
-export const SampleSummaryView: React.FC<SampleSummaryViewProps> = ({
+export const SampleSummaryView: FC<SampleSummaryViewProps> = ({
   parent_id,
   sample,
   sampleDescriptor,
@@ -46,6 +47,7 @@ export const SampleSummaryView: React.FC<SampleSummaryViewProps> = ({
     sampleDescriptor?.messageShape.normalized.limit > 0
       ? Math.max(0.15, sampleDescriptor.messageShape.normalized.limit)
       : 0;
+  const timeSize = sample.working_time || sample.total_time ? 0.15 : 0;
   const idSize = Math.max(
     2,
     Math.min(10, sampleDescriptor?.messageShape.raw.id),
@@ -110,6 +112,23 @@ export const SampleSummaryView: React.FC<SampleSummaryViewProps> = ({
     });
   }
 
+  const toolTip = (working_time?: WorkingTime) => {
+    if (working_time === undefined || working_time === null) {
+      return undefined;
+    }
+    return `Working time: ${formatTime(working_time)}`;
+  };
+
+  if (sample.total_time) {
+    columns.push({
+      label: "Time",
+      value: formatTime(sample.total_time),
+      size: `${timeSize}fr`,
+      center: true,
+      title: toolTip(sample.working_time),
+    });
+  }
+
   if (sample?.limit && limitSize > 0) {
     columns.push({
       label: "Limit",
@@ -143,23 +162,27 @@ export const SampleSummaryView: React.FC<SampleSummaryViewProps> = ({
           .join(" ")}`,
       }}
     >
-      {columns.map((col) => {
+      {columns.map((col, idx) => {
         return (
           <div
+            key={`sample-summ-lbl-${idx}`}
             className={clsx(
               "text-style-label",
               "text-style-secondary",
               "text-size-base",
+              col.title ? styles.titled : undefined,
               col.center ? styles.centerLabel : undefined,
             )}
+            title={col.title}
           >
             {col.label}
           </div>
         );
       })}
-      {columns.map((col) => {
+      {columns.map((col, idx) => {
         return (
           <div
+            key={`sample-summ-val-${idx}`}
             className={clsx(
               styles.wrap,
               col.clamp ? "three-line-clamp" : undefined,

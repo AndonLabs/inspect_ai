@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { FC } from "react";
 import { Messages } from "../../types/log";
 import { ChatMessageRow } from "./ChatMessageRow";
 import { resolveMessages } from "./messages";
@@ -16,7 +17,7 @@ interface ChatViewProps {
 /**
  * Renders the ChatView component.
  */
-export const ChatView: React.FC<ChatViewProps> = ({
+export const ChatView: FC<ChatViewProps> = ({
   id,
   messages,
   toolCallStyle = "complete",
@@ -32,6 +33,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
           collapsedMessages.length > 1 && numbered ? index + 1 : undefined;
         return (
           <ChatMessageRow
+            key={`${id}-msg-${index}`}
             parentName={id || "chat-view"}
             number={number}
             resolvedMessage={msg}

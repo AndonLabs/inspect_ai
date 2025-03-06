@@ -7,6 +7,8 @@ import { MetaDataView } from "./MetaDataView";
 
 import clsx from "clsx";
 import React, { Fragment, JSX } from "react";
+import JSONPanel from "../components/JsonPanel";
+import { isJson } from "../utils/json";
 import styles from "./RenderedContent.module.css";
 import { Buckets, ContentRenderer } from "./types";
 
@@ -79,6 +81,20 @@ const contentRenderers: Record<string, ContentRenderer> = {
       };
     },
   },
+  JsonString: {
+    bucket: Buckets.first,
+    canRender: (entry) => {
+      if (typeof entry.value === "string") {
+        const trimmed = entry.value.trim();
+        return isJson(trimmed);
+      }
+      return false;
+    },
+    render: (_id, entry) => {
+      const obj = JSON.parse(entry.value);
+      return { rendered: <JSONPanel data={obj as Record<string, unknown>} /> };
+    },
+  },
   Model: {
     bucket: Buckets.intermediate,
     canRender: (entry) => {
@@ -132,9 +148,11 @@ const contentRenderers: Record<string, ContentRenderer> = {
       const isArray = Array.isArray(entry.value);
       if (isArray) {
         const types = new Set(
-          entry.value.map((e: unknown) => {
-            return typeof e;
-          }),
+          entry.value
+            .filter((e: unknown) => e !== null)
+            .map((e: unknown) => {
+              return typeof e;
+            }),
         );
         return types.size === 1;
       } else {
@@ -235,16 +253,6 @@ const contentRenderers: Record<string, ContentRenderer> = {
     },
     render: (id, entry) => {
       // Generate a json preview
-      const summary = [];
-      const keys = Object.keys(entry.value);
-      if (keys.length > 4) {
-        summary.push(...keys.slice(0, 2));
-        summary.push("...");
-        summary.push(...keys.slice(keys.length - 2));
-      } else {
-        summary.push(...keys);
-      }
-
       return {
         rendered: (
           <MetaDataView

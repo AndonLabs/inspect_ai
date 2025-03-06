@@ -7,6 +7,7 @@ import { ScorerDetailView } from "./ScorerDetailView";
 import { SolversDetailView } from "./SolverDetailView";
 
 import clsx from "clsx";
+import { FC, ReactNode } from "react";
 import styles from "./PlanDetailView.module.css";
 
 interface PlanDetailViewProps {
@@ -15,7 +16,7 @@ interface PlanDetailViewProps {
   scores?: EvalScore[];
 }
 
-export const PlanDetailView: React.FC<PlanDetailViewProps> = ({
+export const PlanDetailView: FC<PlanDetailViewProps> = ({
   evaluation,
   plan,
   scores,
@@ -88,7 +89,7 @@ export const PlanDetailView: React.FC<PlanDetailViewProps> = ({
   const taskColumns: {
     title: string;
     className: string | string[];
-    contents: React.ReactNode;
+    contents: ReactNode;
   }[] = [];
   taskColumns.push({
     title: "Dataset",
@@ -125,6 +126,7 @@ export const PlanDetailView: React.FC<PlanDetailViewProps> = ({
       const scorerPanels = Object.keys(scorers).map((key) => {
         return (
           <ScorerDetailView
+            key={key}
             name={key}
             scores={scorers[key].scores}
             params={scorers[key].params as Record<string, unknown>}
@@ -144,7 +146,7 @@ export const PlanDetailView: React.FC<PlanDetailViewProps> = ({
   const metadataColumns: {
     title: string;
     className: string;
-    contents: React.ReactNode;
+    contents: ReactNode;
   }[] = [];
   const cols = colCount(
     metadataColumns,
@@ -159,6 +161,7 @@ export const PlanDetailView: React.FC<PlanDetailViewProps> = ({
     className: cols === 1 ? styles.oneCol : styles.twoCol,
     contents: (
       <MetaDataView
+        key={`plan-md-task`}
         className={"text-size-small"}
         entries={taskInformation}
         tableOptions="sm"
@@ -172,6 +175,7 @@ export const PlanDetailView: React.FC<PlanDetailViewProps> = ({
       className: cols === 1 ? styles.oneCol : styles.twoCol,
       contents: (
         <MetaDataView
+          key={`plan-md-task-args`}
           className={"text-size-small"}
           entries={task_args as Record<string, unknown>}
           tableOptions="sm"
@@ -185,6 +189,7 @@ export const PlanDetailView: React.FC<PlanDetailViewProps> = ({
       className: cols === 1 ? styles.oneCol : styles.twoCol,
       contents: (
         <MetaDataView
+          key={`plan-md-model-args`}
           className={"text-size-small"}
           entries={model_args as Record<string, unknown>}
           tableOptions="sm"
@@ -199,6 +204,7 @@ export const PlanDetailView: React.FC<PlanDetailViewProps> = ({
       className: cols === 1 ? styles.oneCol : styles.twoCol,
       contents: (
         <MetaDataView
+          key={`plan-md-config`}
           className={"text-size-small"}
           entries={config}
           tableOptions="sm"
@@ -217,6 +223,7 @@ export const PlanDetailView: React.FC<PlanDetailViewProps> = ({
       className: cols === 1 ? styles.oneCol : styles.twoCol,
       contents: (
         <MetaDataView
+          key={`plan-md-generate-config`}
           className={"text-size-small"}
           entries={generate_record}
           tableOptions="sm"
@@ -231,6 +238,7 @@ export const PlanDetailView: React.FC<PlanDetailViewProps> = ({
       className: cols === 1 ? styles.oneCol : styles.twoCol,
       contents: (
         <MetaDataView
+          key={`plan-md-metadata`}
           className={"text-size-small"}
           entries={metadata}
           tableOptions="sm"
@@ -249,7 +257,11 @@ export const PlanDetailView: React.FC<PlanDetailViewProps> = ({
       >
         {taskColumns.map((col) => {
           return (
-            <PlanColumn title={col.title} className={col.className}>
+            <PlanColumn
+              title={col.title}
+              className={col.className}
+              key={`plan-col-${col.title}`}
+            >
               {col.contents}
             </PlanColumn>
           );
@@ -259,7 +271,11 @@ export const PlanDetailView: React.FC<PlanDetailViewProps> = ({
       <div className={clsx(styles.row)}>
         {metadataColumns.map((col) => {
           return (
-            <PlanColumn title={col.title} className={col.className}>
+            <PlanColumn
+              title={col.title}
+              className={col.className}
+              key={`plan-col-${col.title}`}
+            >
               {col.contents}
             </PlanColumn>
           );
@@ -282,14 +298,10 @@ const colCount = (...other: unknown[]) => {
 interface PlanColumnProps {
   title: string;
   className: string | string[];
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
-const PlanColumn: React.FC<PlanColumnProps> = ({
-  title,
-  className,
-  children,
-}) => {
+const PlanColumn: FC<PlanColumnProps> = ({ title, className, children }) => {
   return (
     <div className={clsx(className)}>
       <div
